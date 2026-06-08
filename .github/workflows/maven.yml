@@ -1,0 +1,73 @@
+name: Java CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # ==========================================
+  # TAHAP CI: Kompilasi, Unit Test, & SonarCloud
+  # ==========================================
+  ci-test-and-sonar:
+    name: Build, Test, and SonarCloud Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # Sangat penting agar SonarCloud bisa membaca riwayat Git
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        cache: maven
+
+    # Perintah 'verify' akan memicu Maven untuk mencari dan menjalankan
+    # SemuaTest.java atau file test lain yang ada di src/test/java
+    - name: Run Maven Build, Test, and SonarCloud Scan
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      run: |
+        mvn clean verify sonar:sonar \
+        -Dsonar.host.url=https://sonarcloud.io \
+        -Dsonar.organization=aditya-0122 \
+        -Dsonar.projectKey=aditya-0122_MKEPL_Week12_CICD
+
+    # Simpan hasil kompilasi (.jar) agar tidak hilang dan bisa dipakai untuk rilis
+    - name: Upload Build Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: rilis-aplikasi-java
+        path: target/*.jar
+        retention-days: 1
+
+  # ==========================================
+  # TAHAP CD: Simulasi Deployment ke Server
+  # ==========================================
+  cd-deploy:
+    name: Deploy Application
+    needs: ci-test-and-sonar
+    # Deployment hanya dieksekusi jika perubahan di-push atau di-merge ke branch 'main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Download Build Artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: rilis-aplikasi-java
+        path: target/
+
+    # Simulasi eksekusi akhir. Di dunia nyata, bagian ini diganti dengan
+    # script SSH/SCP untuk mengirim file .jar ke server VPS
+    - name: Execute Deployment
+      run: |
+        echo "Artifact berhasil diunduh!"
+        echo "Menyiapkan aplikasi Java untuk di-deploy ke environment Production..."
+        ls -la target/
